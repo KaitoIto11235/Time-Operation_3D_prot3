@@ -144,8 +144,8 @@ namespace pf {
                 APF<nparts, 3, 3, mn_resampler<nparts, float_t>, float_t>::filter(observation, eval_funcs);
 
                 // 最新の推定結果を取得して保存
-                ssv estimate = this->m_particles[9]; // 例として最初の粒子を使用
-                m_estimates.push_back(estimate);
+                //ssv estimate = this->m_particles[9]; // 例として最初の粒子を使用
+                //m_estimates.push_back(estimate);
 
                 // m_particles[0][0]～m_particles[9][0]までの先頭要素をm_estimates2にpush_backする
                 ssv new_estimate;
@@ -157,22 +157,35 @@ namespace pf {
                 int index5 = this->m_particles[48](0);
                 int index6 = this->m_particles[463](0);
                 int index7 = this->m_particles[146](0);
+                int index8 = this->m_particles[634](0);
+                ////this->m_particles[](0)の平均をindex9に格納
+                //int sum = 0;
+                //for (int i = 0; i < 1000; i++) {
+                //    sum += this->m_particles[i](0);
+                //}
+                //int index8 = sum / 1000;
 
-                //this->m_particles[](0)の平均をindex9に格納
-                int sum = 0;
-                for (int i = 0; i < 1000; i++) {
-                    sum += this->m_particles[i](0);
-                }
-                int index8 = sum / 1000;
+				// m_particlesの重み付き平均を求める
+				float_t sum = 0.0;
+				float_t sum_x = 0.0;
+				for (int i = 0; i < nparts; i++) {
+					sum += std::exp(this->m_logUnNormWeights[i]);
+					sum_x += std::exp(this->m_logUnNormWeights[i]) * this->m_particles[i](0);
+				}
+				int index9 = sum_x / sum;
 
 
                 new_estimate << this->m_reference_trajectory[index0](0), this->m_reference_trajectory[index1](0), this->m_reference_trajectory[index2](0);
                 m_estimates2.push_back(new_estimate);
+
                 new_estimate << this->m_reference_trajectory[index3](0), this->m_reference_trajectory[index4](0), this->m_reference_trajectory[index5](0);
                 m_estimates3.push_back(new_estimate);
+
                 new_estimate << this->m_reference_trajectory[index6](0), this->m_reference_trajectory[index7](0), this->m_reference_trajectory[index8](0);
                 m_estimates4.push_back(new_estimate);
 
+                ssv estimate = this->m_reference_trajectory[index9];
+                m_estimates.push_back(estimate);
 
 
                 // 時刻を更新

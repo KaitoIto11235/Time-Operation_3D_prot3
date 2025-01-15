@@ -12,6 +12,7 @@
 
 constexpr size_t NUM_PARTICLES = 1000;
 std::unique_ptr<pf::filters::Position3DTracker<NUM_PARTICLES, double>> tracker;
+int call_count = 0;
 
 namespace pf {
     namespace filters {
@@ -114,32 +115,64 @@ extern "C"
 
 extern "C"
 {
-    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ResetTracker()
+    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ResetCount()
     {
-        // std::unique_ptrのメモリを開放する処理
-        tracker.reset();
+		call_count = 0;
         return 0;
     }
 }
 
 extern "C"
 {
-    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ParticleFilter(double* userTarget)
+    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API FinishTracker()
+    {
+        // std::unique_ptrのメモリを開放する処理
+        tracker.reset();
+		call_count = 0;
+        return 0;
+    }
+}
+
+extern "C"
+{
+    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ParticleFilter(double* userObserve, double* userTarget)
     {
         std::string reference_trajectory_csv_path = "Assets/Assets/File/AdaptModelMove.csv";
         std::string observation_csv_path = "Assets/Assets/File/AdaptUserTraining.csv";
-        std::string output_csv_path = "Assets/Assets/File/output0.csv";
+        std::string output_csv_path = "Assets/Assets/File/output1.csv";
+
+        //// 見本軌道の生成
+        //auto reference_trajectory = pf::filters::loadFromCSV(reference_trajectory_csv_path);
+        //// 観測データの読み込み
+        //auto observations = pf::filters::loadFromCSV(observation_csv_path);
+
+        //// トラッカーの初期化
+        //tracker = std::make_unique<pf::filters::Position3DTracker<NUM_PARTICLES, double>>(reference_trajectory, 1.0, 1.0);
 
         // 見本軌道の生成
         auto reference_trajectory = pf::filters::loadFromCSV(reference_trajectory_csv_path);
         // 観測データの読み込み
         auto observations = pf::filters::loadFromCSV(observation_csv_path);
 
-        // パーティクル数を1000に設定
-        constexpr size_t NUM_PARTICLES = 1000;
+        // トラッカーが初期化されていない場合のみ初期化
+        if (call_count == 0)
+        {
+            // トラッカーの初期化
+            tracker = std::make_unique<pf::filters::Position3DTracker<NUM_PARTICLES, double>>(reference_trajectory, 1.0, 1.0);
 
-        // トラッカーの初期化
-        tracker = std::make_unique<pf::filters::Position3DTracker<NUM_PARTICLES, double>>(reference_trajectory, 1.0, 1.0);
+        }
+
+        if (call_count < 2100)
+        {
+            //userObserveにreference_trajectoryの値を代入
+            /*userObserve[0] = reference_trajectory[call_count](0);
+            userObserve[1] = reference_trajectory[call_count](1);
+            userObserve[2] = reference_trajectory[call_count](2);*/
+            userObserve[0] = observations[call_count](0);
+            userObserve[1] = observations[call_count](1);
+            userObserve[2] = observations[call_count](2);
+        }
+
 
 
 
@@ -153,21 +186,35 @@ extern "C"
         // 推定結果を保存するベクトル
         std::vector<Eigen::Vector3d> estimates;
 
+        //// フィルタリングの実行
+        //for (const auto& obs : observations) {
+        //    tracker->filter(obs, eval_funcs);
+
+        //    // 時刻を更新
+        //    tracker->updateTime();
+        //}
+
+
+
         // フィルタリングの実行
-        for (const auto& obs : observations) {
-            tracker->filter(obs, eval_funcs);
+        Eigen::Vector3d observation(userObserve[0], userObserve[1], userObserve[2]);
+        tracker->filter(observation, eval_funcs);
+        tracker->updateTime();
 
-
-            // 時刻を更新
-            tracker->updateTime();
-        }
-        userTarget[0] = tracker->getExpectations2()[0](0);
-        userTarget[1] = tracker->getExpectations2()[0](1);
-        userTarget[2] = tracker->getExpectations2()[0](2);
+		if (call_count >= 1 && call_count <= 2100)
+		{
+            userTarget[0] = tracker->getExpectations()[call_count - 1](0);
+            userTarget[1] = tracker->getExpectations()[call_count - 1](1);
+            userTarget[2] = tracker->getExpectations()[call_count - 1](2);
+		}
+        call_count++;
 
         // 推定結果をファイルに書き出す
         //pf::filters::saveEstimatesToFile(tracker.getExpectations(), output_csv_path);
-        pf::filters::saveEstimatesToFile(tracker->getExpectations2(), tracker->getExpectations3(), tracker->getExpectations4(), output_csv_path);
+        if (call_count == 8)
+        {
+            pf::filters::saveEstimatesToFile(tracker->getExpectations2(), tracker->getExpectations3(), tracker->getExpectations4(), output_csv_path);
+        }
 
         return 0;
     }

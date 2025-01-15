@@ -1,14 +1,14 @@
 ﻿  Main.cpp
-C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\NativePluginExample\Main.cpp(43,57): warning C4101: 'e': ローカル変数は 1 度も使われていません。
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\NativePluginExample\Main.cpp(44,57): warning C4101: 'e': ローカル変数は 1 度も使われていません。
 C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(152,28): warning C4244: '初期化中': 'double' から 'int' への変換です。データが失われる可能性があります。
   (ソース ファイル 'Main.cpp' をコンパイルしています)
       C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(152,28):
       テンプレートインスタンス化コンテキスト (最初に最も古いもの) は
-          C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\NativePluginExample\Main.cpp(163,13):
+          C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\NativePluginExample\Main.cpp(201,9):
           コンパイル対象の クラス テンプレート インスタンス化 'pf::filters::Position3DTracker<1000,double>' のリファレンスを確認してください
           C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(142,18):
           クラス テンプレート メンバー関数 'void pf::filters::Position3DTracker<1000,double>::filter(const Eigen::Matrix<double,3,1,0,3,1> &,const std::vector<std::function<const Eigen::MatrixXd (const Eigen::Vector3d &)>,std::allocator<std::function<const Eigen::MatrixXd (const Eigen::Vector3d &)>>> &)' のコンパイル中
-              C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\NativePluginExample\Main.cpp(163,28):
+              C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\NativePluginExample\Main.cpp(201,24):
               'ParticleFilter' の 'pf::filters::Position3DTracker<1000,double>::filter' への最初の参照を参照してください
   
 C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(153,28): warning C4244: '初期化中': 'double' から 'int' への変換です。データが失われる可能性があります。
@@ -32,7 +32,15 @@ C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plu
 C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(159,28): warning C4244: '初期化中': 'double' から 'int' への変換です。データが失われる可能性があります。
   (ソース ファイル 'Main.cpp' をコンパイルしています)
   
-C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(164,48): warning C4244: '+=': 'double' から 'int' への変換です。データが失われる可能性があります。
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(160,28): warning C4244: '初期化中': 'double' から 'int' への変換です。データが失われる可能性があります。
   (ソース ファイル 'Main.cpp' をコンパイルしています)
   
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(175,16): warning C4244: '初期化中': 'float_t' から 'int' への変換です。データが失われる可能性があります。
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(175,16): warning C4244:         with
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(175,16): warning C4244:         [
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(175,16): warning C4244:             float_t=double
+C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\Position3DTracker.h(175,16): warning C4244:         ]
+  (ソース ファイル 'Main.cpp' をコンパイルしています)
+  
+     ライブラリ C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\x64\Debug\NativePluginExample.lib とオブジェクト C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\x64\Debug\NativePluginExample.exp を作成中
   NativePluginExample.vcxproj -> C:\Users\olab\Desktop\ito\UnityProject\Time-Operation_3D_prot3_forGit\Assets\Plugins\NativePluginExample\x64\Debug\NativePluginExample.dll
