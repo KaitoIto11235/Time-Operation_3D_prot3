@@ -29,7 +29,7 @@
     <ClInclude Include="..\..\rv_samp.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\PositionTracker.h">
+    <ClInclude Include="..\..\Position3DTracker.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
