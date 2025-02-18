@@ -13,6 +13,8 @@
 constexpr size_t NUM_PARTICLES = 1000;
 std::unique_ptr<pf::filters::Position3DTracker<NUM_PARTICLES, double>> tracker;
 int call_count = 0;
+// 書き込みファイルの宣言
+std::ofstream file;
 
 namespace pf {
     namespace filters {
@@ -69,34 +71,29 @@ namespace pf {
             }
         }
 
-        static void saveEstimatesToFile(const std::vector<Eigen::Vector3d>& estimates2,
-            const std::vector<Eigen::Vector3d>& estimates3,
-            const std::vector<Eigen::Vector3d>& estimates4,
-            const std::string& file_path) {
-
-            std::ofstream file(file_path);
+        static void saveEstimatesToFile
+            (const Eigen::Matrix<double, 3, 1>& estimates2,
+            const Eigen::Matrix<double, 3, 1>& estimates3,
+            const Eigen::Matrix<double, 3, 1>& estimates4,
+            std::ofstream& file) 
+        {
 
             if (!file.is_open()) {
-                std::cerr << "Failed to open file: " << file_path << std::endl;
+                std::cerr << "Failed to open file: " << std::endl;
                 return;
             }
 
-            if (!estimates2.empty()) {
-                std::cout << "Successfully opened file: " << file_path << std::endl;
-            }
-            else
-            {
-                std::cerr << "No estimates to write to file: " << file_path << std::endl;
-                return;
-            }
             // estimates2, estimates3, estimates4を横に連結してファイルに書き込む
-            for (int i = 0; i < estimates2.size(); i++) {
+            /*for (int i = 0; i < estimates2.size(); i++) {
                 file << estimates2[i](0) << "," << estimates2[i](1) << "," << estimates2[i](2) << ",";
                 file << estimates3[i](0) << "," << estimates3[i](1) << "," << estimates3[i](2) << ",";
                 file << estimates4[i](0) << "," << estimates4[i](1) << "," << estimates4[i](2) << "\n";
-            }
+            }*/
 
-            std::cout << "Successfully wrote estimates to file: " << file_path << std::endl;
+			// ファイルに書き込む
+			file << estimates2(0) << "," << estimates2(1) << "," << estimates2(2) << ",";
+			file << estimates3(0) << "," << estimates3(1) << "," << estimates3(2) << ",";
+			file << estimates4(0) << "," << estimates4(1) << "," << estimates4(2) << "\n";
 
         }
     }
@@ -118,6 +115,11 @@ extern "C"
     UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ResetCount()
     {
 		call_count = 0;
+        // ファイルに空の行を追加
+		if (file.is_open()) {
+			file << "\n";
+		}
+
         return 0;
     }
 }
@@ -129,17 +131,21 @@ extern "C"
         // std::unique_ptrのメモリを開放する処理
         tracker.reset();
 		call_count = 0;
+        // ファイルを閉じる
+        if (file.is_open()) {
+            file.close();
+        }
         return 0;
     }
 }
 
 extern "C"
 {
-    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ParticleFilter(double* userObserve, double* userTarget)
+    UNITY_INTERFACE_EXPORT int UNITY_INTERFACE_API ParticleFilter(double* model, double* userObserve, double* userTarget)
     {
-        std::string reference_trajectory_csv_path = "Assets/Assets/File/AdaptModelMove.csv";
-        std::string observation_csv_path = "Assets/Assets/File/AdaptUserTraining.csv";
-        std::string output_csv_path = "Assets/Assets/File/output1.csv";
+        std::string reference_trajectory_csv_path = "Assets/MoveFile/AdaptModelMove10mean.csv";
+        std::string observation_csv_path = "Assets/MoveFile/AdaptUserMove10mean.csv";
+        std::string output_csv_path = "Assets/MoveFile/output1.csv";
 
         //// 見本軌道の生成
         //auto reference_trajectory = pf::filters::loadFromCSV(reference_trajectory_csv_path);
@@ -154,20 +160,38 @@ extern "C"
         // 観測データの読み込み
         auto observations = pf::filters::loadFromCSV(observation_csv_path);
 
+        // 書き込み先のファイルが開かれていなければ開く
+        if (!file.is_open())
+        {
+            file.open(output_csv_path, std::ios::out | std::ios::app);
+
+            if (!file.is_open()) {
+                std::cerr << "Failed to open file: " << output_csv_path << std::endl;
+                return -1;
+            }
+        }
+
         // トラッカーが初期化されていない場合のみ初期化
         if (call_count == 0)
         {
             // トラッカーの初期化
-            tracker = std::make_unique<pf::filters::Position3DTracker<NUM_PARTICLES, double>>(reference_trajectory, 1.0, 1.0);
+            tracker = std::make_unique<pf::filters::Position3DTracker<NUM_PARTICLES, double>>
+                (reference_trajectory, 1.0, 0.1, 720.0/1138.0);
 
         }
 
-        if (call_count < 2100)
+        if (call_count < 1147 && call_count > -1)
         {
+            if (call_count < 719)
+            {
+                //modelにreference_trajectoryの値を代入(本当はC#側で十分できるけど、面倒くさい。)
+                model[0] = reference_trajectory[call_count](0);
+                model[1] = reference_trajectory[call_count](1);
+                model[2] = reference_trajectory[call_count](2);
+            }
+			
+
             //userObserveにreference_trajectoryの値を代入
-            /*userObserve[0] = reference_trajectory[call_count](0);
-            userObserve[1] = reference_trajectory[call_count](1);
-            userObserve[2] = reference_trajectory[call_count](2);*/
             userObserve[0] = observations[call_count](0);
             userObserve[1] = observations[call_count](1);
             userObserve[2] = observations[call_count](2);
@@ -183,19 +207,6 @@ extern "C"
         std::vector<std::function<const Eigen::MatrixXd(const Eigen::Vector3d&)>> eval_funcs;
         eval_funcs.push_back(position_eval);
 
-        // 推定結果を保存するベクトル
-        std::vector<Eigen::Vector3d> estimates;
-
-        //// フィルタリングの実行
-        //for (const auto& obs : observations) {
-        //    tracker->filter(obs, eval_funcs);
-
-        //    // 時刻を更新
-        //    tracker->updateTime();
-        //}
-
-
-
         // フィルタリングの実行
         Eigen::Vector3d observation(userObserve[0], userObserve[1], userObserve[2]);
         tracker->filter(observation, eval_funcs);
@@ -209,12 +220,9 @@ extern "C"
 		}
         call_count++;
 
-        // 推定結果をファイルに書き出す
-        //pf::filters::saveEstimatesToFile(tracker.getExpectations(), output_csv_path);
-        if (call_count == 8)
-        {
-            pf::filters::saveEstimatesToFile(tracker->getExpectations2(), tracker->getExpectations3(), tracker->getExpectations4(), output_csv_path);
-        }
+        // 現在の推定結果をファイルに書き出す
+        pf::filters::saveEstimatesToFile(tracker->getExpectations2(), tracker->getExpectations3(), tracker->getExpectations4(), file);
+        
 
         return 0;
     }

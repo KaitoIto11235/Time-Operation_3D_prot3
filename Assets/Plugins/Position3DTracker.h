@@ -29,26 +29,36 @@ namespace pf {
             float_t m_obs_noise;    // Observation noise standard deviation
             std::normal_distribution<float_t> m_normal_dist;
             std::poisson_distribution<int> m_poisson_dist;
+			std::uniform_int_distribution<int> m_uniform_dist;
             std::default_random_engine m_random_engine;
 
             // 見本軌道のデータを保持
             std::vector<ssv> m_reference_trajectory;
             std::vector<ssv> m_estimates; // 推定結果を保持するメンバ変数
-            std::vector<ssv> m_estimates2;
+            /*std::vector<ssv> m_estimates2;
             std::vector<ssv> m_estimates3;
-            std::vector<ssv> m_estimates4;
+            std::vector<ssv> m_estimates4;*/
+            ssv new_estimate2;
+			ssv new_estimate3;
+			ssv new_estimate4;
+
+            // 直前の観測値を保持する
+			osv m_previous_observe;
+
             size_t m_current_time;
 
         public:
             // Constructor
             Position3DTracker(const std::vector<ssv>& reference_trajectory,
                 float_t sys_noise = 0.1,
-                float_t obs_noise = 0.1)
+                float_t obs_noise = 0.1,
+                float_t mean_normal = 1.0)
                 : APF<nparts, 3, 3, mn_resampler<nparts, float_t>, float_t>()
                 , m_sys_noise(sys_noise)
                 , m_obs_noise(obs_noise)
-                , m_normal_dist(0.0, 1.0)
-                , m_poisson_dist(2)
+                , m_normal_dist(mean_normal, 1)
+                , m_poisson_dist(1)
+                , m_uniform_dist(0, 1)
                 , m_reference_trajectory(reference_trajectory)
                 , m_current_time(0)
             {
@@ -86,8 +96,14 @@ namespace pf {
 
             // 純粋仮想関数の実装
             ssv propMu(const ssv& xtm1) override {
+                ssv xt;
+                /*int progress = m_uniform_dist(m_random_engine);
+                float_t noise = m_normal_dist(m_random_engine);*/
                 // 状態遷移の提案分布
-                return xtm1; // 例として、単純に前の状態を返す
+                for (int i = 0; i < 3; ++i) {
+                    xt(i) = xtm1(i);
+                }
+                return xt;
             }
 
             //// 状態遷移のサンプリング
@@ -101,11 +117,25 @@ namespace pf {
             // 状態遷移のサンプリング（状態がインデックスver.）
             ssv fSamp(const ssv& xtm1) override {
                 ssv xt;
-                //float_t noise = m_sys_noise * m_normal_dist(m_random_engine);
-                float_t noise = m_sys_noise * m_poisson_dist(m_random_engine);
-                for (int i = 0; i < 3; ++i) {
-                    xt(i) = xtm1(i) + static_cast<int>(noise) - 1;
+
+				int progress = m_uniform_dist(m_random_engine);
+                float_t noise = m_normal_dist(m_random_engine);
+                int jumpNoise = m_poisson_dist(m_random_engine);
+
+                // めったに起こらないことが起きた場合、ジャンプさせる。
+                if (jumpNoise > 4)
+                {
+                    jumpNoise = 1;
                 }
+                else
+                {
+                    jumpNoise = 0;
+                }
+
+                for (int i = 0; i < 3; ++i) {
+                    xt(i) = xtm1(i) + std::round(noise) + (8 * jumpNoise);
+                }
+
                 // m_reference_trajectoryのインデックスを定義域とする
                 if (xt(0) < 0) {
                     for (int i = 0; i < 3; ++i) {
@@ -124,16 +154,61 @@ namespace pf {
             // 観測尤度の評価
             float_t logGEv(const osv& yt, const ssv& xt) {
                 float_t sum = 0.0;
+				// 状態xtをm_reference_trajectoryのインデックスとして扱う
                 int index = static_cast<int>(xt(0));
                 if (index < 0) {
                     index = 0;
-                }
+				}
+				else if (index > 719) {
+					index = 719;
+				}
                 // Gaussian observation model
-                for (int i = 0; i < 3; ++i) {
-                    float_t diff = yt(i) - m_reference_trajectory[index](i);
-                    sum += -0.5 * (diff * diff) / (m_obs_noise * m_obs_noise);
+                if (index != 0)
+                {
+                    float_t diff_pos[3];
+                    float_t diff_vel[3];
+                    float_t diff;
+                    for (int i = 0; i < 3; ++i) {
+
+                        // 位置の差分
+                        float_t vel = 50.0 * yt(i) - 50.0 * m_previous_observe[i];
+                        float_t ref_vel = 50.0 * m_reference_trajectory[index](i) - 50.0 * m_reference_trajectory[index - 1](i);
+
+                        // 位置のズレ
+                        diff_pos[i] = yt(i) - m_reference_trajectory[index](i);
+                        // 速度のズレ
+                        diff_vel[i] = vel - ref_vel;
+
+                        //// 位置のズレと速度のズレの合計
+                        //diff = 0.9 * std::abs(diff_pos) + 0.1 * std::abs(diff_vel);
+                        //sum += -0.5 * diff / (m_obs_noise * m_obs_noise);
+                        //sum += std::log(2 * diff);
+                    }
+                    diff = 0.9 * std::sqrt(diff_pos[0] * diff_pos[0] + diff_pos[1] * diff_pos[1] + diff_pos[2] * diff_pos[2])
+                        + 0.1 * std::sqrt(diff_vel[0] * diff_vel[0] + diff_vel[1] * diff_vel[1] + diff_vel[2] * diff_vel[2]);
+                    sum = std::log(1 * diff);
+				}
+				else
+				{
+					for (int i = 0; i < 3; ++i) {
+						float_t diff = yt(i) - m_reference_trajectory[index](i);
+						sum += -0.5 * (diff * diff) / (m_obs_noise * m_obs_noise);
+					}
+				}
+
+                // sumが小さすぎる場合の対処
+                if (sum < std::numeric_limits<float_t>::epsilon()) {
+                    sum = -std::numeric_limits<float_t>::epsilon();
                 }
+                
                 return sum;
+
+                //// Gaussian observation model
+                //for (int i = 0; i < 3; ++i) {
+                //    float_t diff = yt(i) - m_reference_trajectory[index](i);
+                //    sum += -0.5 * (diff * diff) / (m_obs_noise * m_obs_noise);
+                //}
+                //return sum;
             }
 
 
@@ -148,16 +223,16 @@ namespace pf {
                 //m_estimates.push_back(estimate);
 
                 // m_particles[0][0]～m_particles[9][0]までの先頭要素をm_estimates2にpush_backする
-                ssv new_estimate;
+                
                 int index0 = this->m_particles[0](0);
-                int index1 = this->m_particles[124](0);
+                int index1 = this->m_particles[24](0);
                 int index2 = this->m_particles[34](0);
                 int index3 = this->m_particles[36](0);
-                int index4 = this->m_particles[244](0);
+                int index4 = this->m_particles[44](0);
                 int index5 = this->m_particles[48](0);
-                int index6 = this->m_particles[463](0);
-                int index7 = this->m_particles[146](0);
-                int index8 = this->m_particles[634](0);
+                int index6 = this->m_particles[63](0);
+                int index7 = this->m_particles[16](0);
+                int index8 = this->m_particles[6](0);
                 ////this->m_particles[](0)の平均をindex9に格納
                 //int sum = 0;
                 //for (int i = 0; i < 1000; i++) {
@@ -174,19 +249,20 @@ namespace pf {
 				}
 				int index9 = sum_x / sum;
 
+                new_estimate2 << this->m_reference_trajectory[index0](0), this->m_reference_trajectory[index1](0), this->m_reference_trajectory[index2](0);
+                //m_estimates2.push_back(new_estimate);
+                
+                new_estimate3 << this->m_reference_trajectory[index3](0), this->m_reference_trajectory[index4](0), this->m_reference_trajectory[index5](0);
+                //m_estimates3.push_back(new_estimate);
 
-                new_estimate << this->m_reference_trajectory[index0](0), this->m_reference_trajectory[index1](0), this->m_reference_trajectory[index2](0);
-                m_estimates2.push_back(new_estimate);
-
-                new_estimate << this->m_reference_trajectory[index3](0), this->m_reference_trajectory[index4](0), this->m_reference_trajectory[index5](0);
-                m_estimates3.push_back(new_estimate);
-
-                new_estimate << this->m_reference_trajectory[index6](0), this->m_reference_trajectory[index7](0), this->m_reference_trajectory[index8](0);
-                m_estimates4.push_back(new_estimate);
+                new_estimate4 << this->m_reference_trajectory[index6](0), this->m_reference_trajectory[index7](0), this->m_reference_trajectory[index9](0);
+                //m_estimates4.push_back(new_estimate);
 
                 ssv estimate = this->m_reference_trajectory[index9];
                 m_estimates.push_back(estimate);
 
+				// 直前の状態を保持
+                m_previous_observe = observation;
 
                 // 時刻を更新
                 updateTime();
@@ -196,15 +272,18 @@ namespace pf {
             std::vector<ssv> getExpectations() const {
                 return m_estimates;
             }
-            std::vector<ssv> getExpectations2() const {
-                return m_estimates2;
+            
+            // 現時刻の推定結果を返す
+            const ssv getExpectations2() const {
+                return new_estimate2;
             }
-            std::vector<ssv> getExpectations3() const {
-                return m_estimates3;
+            const ssv getExpectations3() const {
+                return new_estimate3;
             }
-            std::vector<ssv> getExpectations4() const {
-                return m_estimates4;
+            const ssv getExpectations4() const {
+                return new_estimate4;
             }
+
 
 
 

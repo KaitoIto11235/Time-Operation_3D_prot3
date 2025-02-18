@@ -9,7 +9,7 @@ namespace NativePluginExample
         public static extern int DoSomething(int x, int y);
 
         [DllImport("NativePluginExample")]
-        public static extern int ParticleFilter(double[] userObserve, double[] userTarget);
+        public static extern int ParticleFilter(double[] model, double[] userObserve, double[] userTarget);
 
         // public static extern int ParticleFilter(float x, float y, float z);
 
